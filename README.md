@@ -6,6 +6,16 @@ Server-side integration boundary between OCodeJS and the Nhân Hòa Web4s partne
 
 This is a **read-only bootstrap**. It does not send requests to Web4s. The partner documentation link supplied earlier could not be retrieved reliably, so no upstream base URL, endpoint, HTTP method, payload, or write permission is assumed.
 
+## Web4s platform compatibility
+
+Nhân Hòa announced Web4s 5.0 as the replacement platform effective 15 October 2026. Its published transition notice states that new feature development on legacy versions stops from that date, ordinary bug fixes stop from 1 February 2027, security patching stops from 1 June 2027, and legacy service operation ends on 1 January 2028.
+
+This public notice does **not** identify the version currently running on `ocodejs.id.vn`, nor does it establish that the partner API credentials or endpoints are compatible with Web4s 5.0. Confirm the account's actual platform version and obtain the matching API specification before implementing upstream calls.
+
+Source: [Nhân Hòa — Web4s platform transition notice](https://web4s.vn/thong-bao-chuyen-doi-phien-ban-website.html).
+
+See [the integration readiness gate](docs/web4s-integration-readiness.md) for the required verification checklist.
+
 ## Runtime
 
 - Node.js 22+ and Fastify 5
@@ -37,4 +47,4 @@ No generic HTTP proxy, arbitrary URL forwarding, browser exposure of secrets, or
 
 ## Next gate
 
-Provide sanitized partner API documentation covering base URL, authentication, endpoint list, request/response examples, rate limits, and documented write scopes. Implement only verified operations.
+Provide sanitized partner API documentation covering the account's Web4s version, base URL, authentication, endpoint list, request/response examples, rate limits, sandbox, and documented read/write scopes. Implement only verified operations.
