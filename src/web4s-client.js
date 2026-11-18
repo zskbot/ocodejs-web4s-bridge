@@ -74,6 +74,7 @@ export function createWeb4sReadOnlyClient({
     throw new TypeError("maxResponseBytes must be an integer between 1 and 10485760");
   }
 
+  const basePath = base.pathname.endsWith("/") ? base.pathname : `${base.pathname}/`;
   const allowlist = new Set(allowedPaths.map(normalizePath));
   const safeHeaders = new Headers(headers);
   safeHeaders.set("accept", "application/json");
@@ -88,7 +89,8 @@ export function createWeb4sReadOnlyClient({
       }
 
       const url = new URL(safePath, base);
-      if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) {
+      if (url.origin !== base.origin ||
+          !(url.pathname === base.pathname || url.pathname.startsWith(basePath))) {
         throw new Error("Web4s endpoint escaped the configured base URL");
       }
       if (query !== undefined) {
