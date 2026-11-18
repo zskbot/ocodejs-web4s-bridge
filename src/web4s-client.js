@@ -5,10 +5,41 @@ function normalizePath(path) {
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) {
     throw new TypeError("Web4s endpoint must be an absolute path beginning with one slash");
   }
-  if (path.includes("\\\\") || path.split("/").some((part) => part === "." || part === "..")) {
+  if (path.includes("\\") || path.split("/").some((part) => part === "." || part === "..")) {
     throw new TypeError("Web4s endpoint contains an unsafe path segment");
   }
   return path;
+}
+
+async function readLimitedBody(response, maxBytes) {
+  const reader = response.body?.getReader?.();
+  if (!reader) {
+    const text = await response.text();
+    if (new TextEncoder().encode(text).byteLength > maxBytes) {
+      throw Object.assign(new Error("Web4s response exceeds configured size limit"), { code: "WEB4S_RESPONSE_TOO_LARGE" });
+    }
+    return text;
+  }
+
+  const chunks = [];
+  let total = 0;
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw Object.assign(new Error("Web4s response exceeds configured size limit"), { code: "WEB4S_RESPONSE_TOO_LARGE" });
+    }
+    chunks.push(value);
+  }
+  const merged = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    merged.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(merged);
 }
 
 export function createWeb4sReadOnlyClient({
@@ -59,8 +90,8 @@ export function createWeb4sReadOnlyClient({
       }
 
       const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(new Error("Web4s request timed out")), timeoutMs);
-      const abortFromCaller = () => controller.abort(signal.reason);
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      const abortFromCaller = () => controller.abort();
       signal?.addEventListener("abort", abortFromCaller, { once: true });
       if (signal?.aborted) abortFromCaller();
 
@@ -75,10 +106,7 @@ export function createWeb4sReadOnlyClient({
         if (Number.isFinite(declaredLength) && declaredLength > maxResponseBytes) {
           throw Object.assign(new Error("Web4s response exceeds configured size limit"), { code: "WEB4S_RESPONSE_TOO_LARGE" });
         }
-        const text = await response.text();
-        if (Buffer.byteLength(text, "utf8") > maxResponseBytes) {
-          throw Object.assign(new Error("Web4s response exceeds configured size limit"), { code: "WEB4S_RESPONSE_TOO_LARGE" });
-        }
+        const text = await readLimitedBody(response, maxResponseBytes);
         if (!response.ok) {
           throw Object.assign(new Error(`Web4s returned HTTP ${response.status}`), {
             code: "WEB4S_UPSTREAM_HTTP_ERROR",
@@ -95,7 +123,7 @@ export function createWeb4sReadOnlyClient({
           throw Object.assign(new Error("Web4s returned invalid JSON"), { code: "WEB4S_INVALID_JSON" });
         }
       } catch (error) {
-        if (controller.signal.aborted && error.name === "AbortError") {
+        if (controller.signal.aborted) {
           throw Object.assign(new Error("Web4s request timed out or was aborted"), { code: "WEB4S_REQUEST_ABORTED" });
         }
         throw error;
