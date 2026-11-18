@@ -97,3 +97,17 @@ test("aborts requests that exceed the configured timeout", async () => {
   });
   await assert.rejects(client.get("/v1/pages"), { code: "WEB4S_REQUEST_ABORTED" });
 });
+
+test("enforces base URL path boundaries instead of accepting sibling prefixes", async () => {
+  let requestedUrl;
+  const client = createWeb4sReadOnlyClient({
+    baseUrl: "https://api.example.invalid/v1",
+    allowedPaths: ["/v10/pages"],
+    fetchImpl: async (url) => {
+      requestedUrl = String(url);
+      return jsonResponse();
+    },
+  });
+  await assert.rejects(client.get("/v10/pages"), /escaped the configured base URL/);
+  assert.equal(requestedUrl, undefined);
+});
