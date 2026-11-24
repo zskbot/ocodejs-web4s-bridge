@@ -5,8 +5,19 @@ function normalizePath(path) {
   if (typeof path !== "string" || !path.startsWith("/") || path.startsWith("//")) {
     throw new TypeError("Web4s endpoint must be an absolute path beginning with one slash");
   }
-  if (path.includes("\\") || path.split("/").some((part) => part === "." || part === "..")) {
-    throw new TypeError("Web4s endpoint contains an unsafe path segment");
+  if (path.includes("\\") || path.includes("?") || path.includes("#")) {
+    throw new TypeError("Web4s endpoint must be a path without query, fragment, or backslash");
+  }
+  for (const segment of path.split("/")) {
+    let decoded;
+    try {
+      decoded = decodeURIComponent(segment);
+    } catch {
+      throw new TypeError("Web4s endpoint contains malformed URL encoding");
+    }
+    if (decoded === "." || decoded === ".." || decoded.includes("/") || decoded.includes("\\")) {
+      throw new TypeError("Web4s endpoint contains an unsafe path segment");
+    }
   }
   return path;
 }
@@ -63,6 +74,7 @@ export function createWeb4sReadOnlyClient({
     throw new TypeError("maxResponseBytes must be an integer between 1 and 10485760");
   }
 
+  const basePath = base.pathname.endsWith("/") ? base.pathname : `${base.pathname}/`;
   const allowlist = new Set(allowedPaths.map(normalizePath));
   const safeHeaders = new Headers(headers);
   safeHeaders.set("accept", "application/json");
@@ -77,15 +89,22 @@ export function createWeb4sReadOnlyClient({
       }
 
       const url = new URL(safePath, base);
-      if (url.origin !== base.origin || !url.pathname.startsWith(base.pathname)) {
+      if (url.origin !== base.origin ||
+          !(url.pathname === base.pathname || url.pathname.startsWith(basePath))) {
         throw new Error("Web4s endpoint escaped the configured base URL");
       }
       if (query !== undefined) {
-        if (!query || typeof query !== "object" || Array.isArray(query)) {
+        if (!query || typeof query !== "object" || Array.isArray(query) ||
+            (Object.getPrototypeOf(query) !== Object.prototype && Object.getPrototypeOf(query) !== null)) {
           throw new TypeError("query must be a plain object");
         }
         for (const [key, value] of Object.entries(query)) {
-          if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+          if (value === undefined || value === null) continue;
+          if (!key || !["string", "number", "boolean"].includes(typeof value) ||
+              (typeof value === "number" && !Number.isFinite(value))) {
+            throw new TypeError("query values must be strings, finite numbers, or booleans");
+          }
+          url.searchParams.set(key, String(value));
         }
       }
 
