@@ -6,6 +6,8 @@ on:
     branches:
       - 'feat/**'
       - 'fix/**'
+      - 'test/**'
+      - 'chore/**'
   workflow_dispatch:
 permissions:
   contents: read
@@ -15,12 +17,17 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           package-manager-cache: false
+      - name: Record runtime versions
+        run: |
+          node --version
+          npm --version
       - name: Generate lockfile without running install scripts
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Install locked dependencies
