@@ -6,6 +6,18 @@ Server-side integration boundary between OCodeJS and the Nhân Hòa Web4s partne
 
 This is a **read-only bootstrap**. It does not send requests to Web4s. The partner documentation link supplied earlier could not be retrieved reliably, so no upstream base URL, endpoint, HTTP method, payload, or write permission is assumed.
 
+A guarded GET-only transport foundation is available in `src/web4s-client.js`. It requires an explicit exact-path allowlist, rejects redirects, enforces HTTPS, bounds request time and response size, and accepts JSON responses only. It is not connected to a live upstream API until the account-specific API specification is verified.
+
+## Web4s platform compatibility
+
+Nhân Hòa announced Web4s 5.0 as the replacement platform effective 15 October 2026. Its published transition notice states that new feature development on legacy versions stops from that date, ordinary bug fixes stop from 1 February 2027, security patching stops from 1 June 2027, and legacy service operation ends on 1 January 2028.
+
+This public notice does **not** identify the version currently running on `ocodejs.id.vn`, nor does it establish that the partner API credentials or endpoints are compatible with Web4s 5.0. Confirm the account's actual platform version and obtain the matching API specification before implementing upstream calls.
+
+Source: [Nhân Hòa — Web4s platform transition notice](https://web4s.vn/thong-bao-chuyen-doi-phien-ban-website.html).
+
+See [the integration readiness gate](docs/web4s-integration-readiness.md) and [the client foundation guide](docs/web4s-client-foundation.md) for the required verification checklist.
+
 ## Runtime
 
 - Node.js 22+ and Fastify 5
@@ -21,7 +33,7 @@ Copy `.env.example` to `.env` and set `BRIDGE_ACCESS_TOKEN` (random, at least 32
 - `GET /health`: public liveness check, no credential details.
 - `GET /api/v1/status`: protected by `Authorization: Bearer <BRIDGE_ACCESS_TOKEN>`; returns boolean credential-presence flags only.
 
-No Web4s upstream calls or mutation endpoints are implemented until official API documentation is verified.
+No Web4s upstream calls or mutation endpoints are exposed by the HTTP server. The new client module is not wired to routes until verified endpoint schemas and authentication are available.
 
 ## Local development
 
@@ -29,12 +41,10 @@ No Web4s upstream calls or mutation endpoints are implemented until official API
 npm install
 cp .env.example .env
 npm run dev
+npm test
+npm run check
 ```
 
 ## Safety model
 
-No generic HTTP proxy, arbitrary URL forwarding, browser exposure of secrets, or write operations. Add endpoint-specific schemas, allowlists, audit events, and tests before enabling mutations.
-
-## Next gate
-
-Provide sanitized partner API documentation covering base URL, authentication, endpoint list, request/response examples, rate limits, and documented write scopes. Implement only verified operations.
+No generic HTTP proxy, arbitrary URL forwarding, browser exposure of secrets, or write operations. Add endpoint-specific schemas, allowlists, audit events, and tests before enabling any future integration beyond read-only operations.
